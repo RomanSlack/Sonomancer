@@ -129,13 +129,24 @@ Sonomancer/
 3. **Ambience**: AI automatically selects ambient videos for each chapter
 4. **Toggle**: Use the speaker icon to turn ambience on/off
 
-## AI Workflow
+## Agentic AI System
 
-1. Extract random excerpts from chapter text
-2. Classify mood using OpenAI (tense, romantic, mystical, etc.)
-3. Search YouTube for long-form ambient videos matching the mood
-4. Select best video based on title keywords and relevance
-5. Auto-embed and play with cross-fade transitions
+Sonomancer features an **autonomous AI agent** that intelligently curates ambient soundscapes:
+
+**🤖 Intelligent Analysis**
+- Extracts contextual excerpts from chapter text using smart sampling
+- Deploys OpenAI GPT for creative mood classification and ambience recommendations
+- Generates targeted search queries for optimal YouTube content discovery
+
+**🔧 Autonomous Tool Usage**
+- **YouTube Search Tool**: Automatically queries YouTube Data API with advanced filtering
+- **Content Scoring Engine**: Evaluates videos using weighted keyword analysis (ambient vs music detection)
+- **Smart Selection**: Prefers calm, long-duration ambient content over music tracks
+
+**🎯 Adaptive Behavior**
+- Learns from video metadata patterns to improve selection quality
+- Handles API failures gracefully with fallback search strategies
+- Provides contextual explanations for each ambient selection choice
 
 ## Troubleshooting
 
