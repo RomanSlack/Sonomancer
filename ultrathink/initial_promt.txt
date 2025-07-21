@@ -1,0 +1,136 @@
+
+
+---
+
+## **Task Description**
+
+Build a **production‑ready** ambient e‑reader web app driven by an *agentic* AI workflow:
+
+1. **User uploads** an EPUB or PDF.
+2. Reader displays the book **chapter‑by‑chapter** in a clean dark‑mode UI.
+3. When the reader lands on a chapter, an **AI agent**:
+
+   * Looks at random sentences or paragraphs from pages throughout the chapter .
+   * Decides a single vibe *mood* (e.g., *tense*, *romantic*, *mystical*).
+   * Uses a **YouTube search tool** to find a long (>30 min) ambience video matching that mood + basic context (e.g., “tense medieval ambience”).
+   * Returns the top video ID.
+4. Front‑end **embeds** the YouTube video, autoplays it, and cross‑fades when the user switches chapters.
+5. A simple toggle lets the user turn ambience **on/off** without leaving the page.
+
+No mock data. Everything must function end‑to‑end with real APIs.
+
+---
+
+## **Tech Stack**
+
+YT Part:
+Use official YouTube Data API v3 with filters:
+
+q: mood keyword + “ambience”.
+
+type=video, videoDuration=long, videoEmbeddable=true.
+
+If quota or reliability becomes an issue, fallback to aiotube or Invidious scraping via a custom tool.
+
+Structure the AI agent to:
+
+Call YouTube API as a human-readable "tool"
+
+Parse the results and choose the best match
+
+Return the video ID for frontend to embed
+
+______________________-
+
+| Layer     | Frameworks / Libs                                  | Notes                                                  |
+| --------- | -------------------------------------------------- | ------------------------------------------------------ |
+| Front‑end | **Next.js (React 18)**, Tailwind CSS               | Dark theme, minimalist; embed `<iframe>` for YouTube.  |
+| Back‑end  | **Python 3.11 + FastAPI**                          | Handles uploads, chapter parsing, agent orchestration. |
+| Agent     | **OpenAI GPT‑3.5/4**, `langchain` (or hand‑rolled) | Tool‑using agent: *YouTubeSearch*, *ReturnFinal*.      |
+| Parsing   | `ebooklib` (EPUB) , `PyMuPDF` (PDF)                | Extract ordered chapter text.                          |
+| YouTube   | **YouTube Data API v3**                            | Free quota; filter videos ≥ 30 min.                    |
+
+---
+
+## **API Surface**
+
+| Route                         | Method                       | Purpose                                           |
+| ----------------------------- | ---------------------------- | ------------------------------------------------- |
+| `/upload`                     | `POST (multipart/form‑data)` | Accept EPUB/PDF; returns `book_id`.               |
+| `/chapters/{book_id}`         | `GET`                        | List chapter indices + titles.                    |
+| `/chapter/{book_id}/{index}`  | `GET`                        | Return plaintext for chapter.                     |
+| `/ambience/{book_id}/{index}` | `GET`                        | Runs **AI agent** → returns `{mood, youtube_id}`. |
+
+**Agent flow pseudocode**
+
+```python
+tools = [
+    YouTubeSearch(api_key, max_results=5, duration="long"),
+]
+
+prompt = f"""
+Classify the mood of this text in ONE word (e.g., tense, calm, epic).
+Then think step‑by‑step and choose a YouTube ambience video.
+Return JSON: {{"mood":"…","youtube_id":"…"}}
+TEXT: {chapter_excerpt}
+"""
+
+agent = initialize_agent(tools, llm, ...)
+result = agent(prompt)
+```
+
+---
+
+## **UI Requirements**
+
+* **Upload screen** → drag‑and‑drop file.
+* **Reader screen**:
+
+  * Centered chapter text (scrollable).
+  * Fixed footer bar with chapter nav & ambience toggle.
+  * When ambience on: show small YouTube player, volume auto‑set to 40 %.
+* Responsive; works on desktop & mobile.
+
+---
+
+## **Non‑Functional Constraints**
+
+* Production‑grade structure but **minimal boilerplate**. Keep codebase lean.
+* Use `.env` for keys:
+
+  ```dotenv
+  OPENAI_API_KEY=
+  YOUTUBE_API_KEY=
+  ```
+* Write clear README with setup and `docker-compose.yml` for one‑command launch.
+* No unit tests required; I’ll handle manual QA.
+* Document major functions inline; avoid over‑abstraction.
+* **Do not** commit keys or sample secrets.
+
+---
+
+## **Deliverables**
+
+```
+ambient-reader/
+├─ backend/            # FastAPI app
+│  ├─ main.py
+│  ├─ agent.py
+│  ├─ parsers.py
+│  ├─ requirements.txt
+│  └─ Dockerfile
+├─ frontend/           # Next.js 14 app
+│  ├─ pages/
+│  ├─ components/
+│  ├─ tailwind.config.js
+│  └─ Dockerfile
+├─ docker-compose.yml
+├─ README.md
+└─ .env.example
+```
+
+Everything must run with `docker-compose up -d`, then open `http://localhost:3000`.
+
+---
+
+### Keep it **simple**, **clean**, fully **functional**, and strictly avoid mock data.
