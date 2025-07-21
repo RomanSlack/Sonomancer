@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { XMarkIcon, SpeakerWaveIcon, SpeakerXMarkIcon, MinusIcon, RectangleStackIcon } from "@heroicons/react/24/outline";
-import { loadYouTubeAPI, isYouTubeAPIReady } from "../lib/youtube-api";
+import { useState, useEffect } from "react";
+import { XMarkIcon, MinusIcon, RectangleStackIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from "@heroicons/react/24/outline";
 
 interface AmbiencePlayerProps {
   youtubeId: string;
@@ -14,162 +13,30 @@ interface AmbiencePlayerProps {
 export default function AmbiencePlayer({ youtubeId, mood, videoTitle, explanation }: AmbiencePlayerProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [volume, setVolume] = useState(15);
-  const [isMuted, setIsMuted] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
-  const [player, setPlayer] = useState<any>(null);
-  const playerRef = useRef<HTMLDivElement>(null);
-  const previousVideoId = useRef<string>("");
+  const [currentVideoId, setCurrentVideoId] = useState(youtubeId);
+  const [volume, setVolume] = useState(30);
+  const [isMuted, setIsMuted] = useState(false);
 
-  // Initialize player function
-  const initializePlayer = useCallback(() => {
-    if (!playerRef.current || !isYouTubeAPIReady()) {
-      return;
-    }
-
-    // Clear any existing player
-    if (player) {
-      try {
-        player.destroy();
-      } catch (e) {
-        console.warn('Error destroying existing player:', e);
-      }
-      setPlayer(null);
-    }
-
-    // Clear container
-    playerRef.current.innerHTML = '';
-
-    try {
-      const newPlayer = new window.YT.Player(playerRef.current, {
-        height: '180',
-        width: '320',
-        videoId: youtubeId,
-        playerVars: {
-          autoplay: 1,
-          controls: 1,
-          rel: 0,
-          showinfo: 0,
-          iv_load_policy: 3,
-          modestbranding: 1,
-        },
-        events: {
-          onReady: (event: any) => {
-            try {
-              event.target.setVolume(volume);
-              if (isMuted) {
-                event.target.mute();
-              }
-              setIsLoading(false);
-              setPlayer(event.target);
-            } catch (e) {
-              console.warn('Error setting up player:', e);
-              setIsLoading(false);
-            }
-          },
-          onStateChange: (event: any) => {
-            if (event.data === window.YT.PlayerState.PLAYING) {
-              setIsLoading(false);
-            }
-          },
-          onError: (event: any) => {
-            console.warn('YouTube player error:', event);
-            setIsLoading(false);
-          },
-        },
-      });
-      previousVideoId.current = youtubeId;
-    } catch (error) {
-      console.error('Error creating player:', error);
-      setIsLoading(false);
-    }
-  }, [youtubeId, volume, isMuted, player]);
-
-  // Load YouTube API
+  // Update video ID with a small delay to prevent rapid changes
   useEffect(() => {
-    let mounted = true;
+    const timer = setTimeout(() => {
+      setCurrentVideoId(youtubeId);
+    }, 100);
 
-    const setupPlayer = async () => {
-      try {
-        await loadYouTubeAPI();
-        if (mounted) {
-          initializePlayer();
-        }
-      } catch (error) {
-        console.error('Failed to load YouTube API:', error);
-        if (mounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    setupPlayer();
-
-    return () => {
-      mounted = false;
-      if (player) {
-        try {
-          player.destroy();
-        } catch (e) {
-          console.warn('Error destroying player on unmount:', e);
-        }
-      }
-    };
-  }, [initializePlayer]);
-
-  // Handle video changes
-  useEffect(() => {
-    if (player && previousVideoId.current !== youtubeId) {
-      setIsLoading(true);
-      try {
-        player.loadVideoById(youtubeId);
-        previousVideoId.current = youtubeId;
-      } catch (error) {
-        console.warn('Error loading new video:', error);
-        setIsLoading(false);
-      }
-    }
-  }, [youtubeId, player]);
-
-  const handleVolumeChange = (newVolume: number) => {
-    setVolume(newVolume);
-    if (player && typeof player.setVolume === 'function') {
-      try {
-        player.setVolume(newVolume);
-        if (newVolume > 0 && isMuted) {
-          setIsMuted(false);
-          player.unMute();
-        }
-      } catch (e) {
-        console.warn('Error setting volume:', e);
-      }
-    }
-  };
-
-  const toggleMute = () => {
-    const newMuted = !isMuted;
-    setIsMuted(newMuted);
-    if (player) {
-      try {
-        if (newMuted && typeof player.mute === 'function') {
-          player.mute();
-        } else if (!newMuted && typeof player.unMute === 'function') {
-          player.unMute();
-        }
-      } catch (e) {
-        console.warn('Error toggling mute:', e);
-      }
-    }
-  };
+    return () => clearTimeout(timer);
+  }, [youtubeId]);
 
   if (!isVisible) {
     return null;
   }
 
+  // Simple YouTube embed URL with autoplay and volume control
+  const embedUrl = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&controls=1&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&volume=${volume}&mute=${isMuted ? 1 : 0}`;
+
   return (
     <div className={`fixed bottom-24 right-4 bg-gray-800 rounded-lg shadow-2xl border border-gray-700 overflow-hidden z-50 transition-all duration-300 ${
-      isMinimized ? 'w-72' : 'w-80'
+      isMinimized ? 'w-64' : 'w-80'
     }`}>
       {/* Header */}
       <div className="flex items-center justify-between p-3 bg-gray-700">
@@ -218,31 +85,25 @@ export default function AmbiencePlayer({ youtubeId, mood, videoTitle, explanatio
         </div>
       )}
 
-      {/* Video Player - Hide visually when minimized but keep DOM element */}
-      <div 
-        className={`relative bg-black transition-all duration-300 ${
-          isMinimized ? 'h-0 overflow-hidden' : 'block'
-        }`} 
-        style={!isMinimized ? { aspectRatio: "16/9" } : { height: 0 }}
-      >
-        {isLoading && !isMinimized && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
-          </div>
-        )}
-        
-        <div 
-          ref={playerRef} 
-          className="w-full h-full"
-          style={{ height: isMinimized ? '180px' : '100%', opacity: isMinimized ? 0 : 1 }}
-        />
-      </div>
+      {/* Simple YouTube Embed */}
+      {!isMinimized && (
+        <div className="relative bg-black" style={{ aspectRatio: "16/9" }}>
+          <iframe
+            key={currentVideoId} // Force re-render when video changes
+            src={embedUrl}
+            className="w-full h-full"
+            allow="autoplay; encrypted-media"
+            allowFullScreen
+            loading="lazy"
+          />
+        </div>
+      )}
 
       {/* Volume Controls */}
       <div className="p-3 bg-gray-700 border-t border-gray-600">
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 mb-2">
           <button
-            onClick={toggleMute}
+            onClick={() => setIsMuted(!isMuted)}
             className="text-gray-400 hover:text-white transition-colors"
             title={isMuted ? "Unmute" : "Mute"}
           >
@@ -259,8 +120,14 @@ export default function AmbiencePlayer({ youtubeId, mood, videoTitle, explanatio
               min="0"
               max="100"
               value={isMuted ? 0 : volume}
-              onChange={(e) => handleVolumeChange(parseInt(e.target.value))}
-              className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
+              onChange={(e) => {
+                const newVolume = parseInt(e.target.value);
+                setVolume(newVolume);
+                if (newVolume > 0 && isMuted) {
+                  setIsMuted(false);
+                }
+              }}
+              className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
               disabled={isMuted}
             />
           </div>
@@ -270,7 +137,7 @@ export default function AmbiencePlayer({ youtubeId, mood, videoTitle, explanatio
           </span>
         </div>
         
-        <div className="text-xs text-gray-500 text-center mt-2">
+        <div className="text-xs text-gray-500 text-center">
           {isMinimized ? "Playing in background" : "AI-selected for this chapter"}
         </div>
       </div>

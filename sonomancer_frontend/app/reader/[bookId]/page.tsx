@@ -82,35 +82,47 @@ export default function ReaderPage() {
     }
   }, [bookId, currentChapterIndex]);
 
-  // Load ambience when chapter changes and ambience is enabled
+  // Load ambience when chapter changes ONLY
   useEffect(() => {
+    let isCancelled = false;
+    
     const fetchAmbience = async () => {
-      if (!ambienceEnabled) return;
-      
       try {
-        // Add timestamp to force fresh analysis on each chapter change
-        const timestamp = Date.now();
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/ambience/${bookId}/${currentChapterIndex}?t=${timestamp}`);
+        console.log(`🔄 Fetching ambience for chapter ${currentChapterIndex}...`);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/ambience/${bookId}/${currentChapterIndex}`);
         if (!response.ok) throw new Error("Failed to fetch ambience");
         
         const data = await response.json();
-        setAmbienceData(data);
-        console.log(`🎵 New ambience loaded for chapter ${currentChapterIndex}:`, data);
+        
+        // Only update state if this request wasn't cancelled
+        if (!isCancelled) {
+          setAmbienceData(data);
+          console.log(`✅ Ambience loaded for chapter ${currentChapterIndex}:`, data);
+        }
       } catch (err) {
-        console.error('Ambience fetch error:', err);
-        // Don't show error for ambience failures, just continue without it
-        setAmbienceData(null);
+        if (!isCancelled) {
+          console.error('Ambience fetch error:', err);
+          setAmbienceData(null);
+        }
       }
     };
 
-    if (bookId && currentChapterIndex >= 0 && ambienceEnabled) {
-      // Clear previous ambience data immediately when switching chapters
-      setAmbienceData(null);
+    if (bookId && currentChapterIndex >= 0) {
       fetchAmbience();
-    } else {
+    }
+
+    // Cleanup function to cancel the request if component unmounts or dependencies change
+    return () => {
+      isCancelled = true;
+    };
+  }, [bookId, currentChapterIndex]);
+
+  // Handle ambience toggle separately
+  useEffect(() => {
+    if (!ambienceEnabled) {
       setAmbienceData(null);
     }
-  }, [bookId, currentChapterIndex, ambienceEnabled]);
+  }, [ambienceEnabled]);
 
   const handleChapterChange = (newIndex: number) => {
     if (newIndex >= 0 && newIndex < chapters.length) {
