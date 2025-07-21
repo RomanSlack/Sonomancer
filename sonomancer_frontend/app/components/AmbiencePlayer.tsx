@@ -1,14 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { XMarkIcon, SpeakerWaveIcon, SpeakerXMarkIcon, MinusIcon, RectangleStackIcon } from "@heroicons/react/24/outline";
-
-declare global {
-  interface Window {
-    YT: any;
-    onYouTubeIframeAPIReady: () => void;
-  }
-}
+import { loadYouTubeAPI, isYouTubeAPIReady } from "../lib/youtube-api";
 
 interface AmbiencePlayerProps {
   youtubeId: string;
@@ -21,76 +15,33 @@ export default function AmbiencePlayer({ youtubeId, mood, videoTitle, explanatio
   const [isVisible, setIsVisible] = useState(true);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [volume, setVolume] = useState(40);
+  const [volume, setVolume] = useState(15);
   const [isMuted, setIsMuted] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   const [player, setPlayer] = useState<any>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const previousVideoId = useRef<string>("");
 
-  // Load YouTube API
-  useEffect(() => {
-    const loadYouTubeAPI = () => {
-      if (window.YT && window.YT.Player) {
-        initializePlayer();
-        return;
-      }
-
-      // Check if script is already loading
-      const existingScript = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
-      if (existingScript) {
-        window.onYouTubeIframeAPIReady = () => {
-          initializePlayer();
-        };
-        return;
-      }
-
-      // Load the script
-      const script = document.createElement('script');
-      script.src = 'https://www.youtube.com/iframe_api';
-      script.async = true;
-      
-      window.onYouTubeIframeAPIReady = () => {
-        initializePlayer();
-      };
-
-      // Safely append to head
-      document.head.appendChild(script);
-    };
-
-    loadYouTubeAPI();
-
-    return () => {
-      if (player && typeof player.destroy === 'function') {
-        try {
-          player.destroy();
-        } catch (e) {
-          console.warn('Error destroying YouTube player:', e);
-        }
-      }
-    };
-  }, []);
-
-  // Handle video changes
-  useEffect(() => {
-    if (player && previousVideoId.current !== youtubeId) {
-      setIsLoading(true);
-      player.loadVideoById(youtubeId);
-      previousVideoId.current = youtubeId;
-    }
-  }, [youtubeId, player]);
-
-  const initializePlayer = () => {
-    if (!playerRef.current || !window.YT || !window.YT.Player) {
+  // Initialize player function
+  const initializePlayer = useCallback(() => {
+    if (!playerRef.current || !isYouTubeAPIReady()) {
       return;
     }
 
-    try {
-      // Clear any existing player
-      if (player && typeof player.destroy === 'function') {
+    // Clear any existing player
+    if (player) {
+      try {
         player.destroy();
+      } catch (e) {
+        console.warn('Error destroying existing player:', e);
       }
+      setPlayer(null);
+    }
 
+    // Clear container
+    playerRef.current.innerHTML = '';
+
+    try {
       const newPlayer = new window.YT.Player(playerRef.current, {
         height: '180',
         width: '320',
@@ -114,6 +65,7 @@ export default function AmbiencePlayer({ youtubeId, mood, videoTitle, explanatio
               setPlayer(event.target);
             } catch (e) {
               console.warn('Error setting up player:', e);
+              setIsLoading(false);
             }
           },
           onStateChange: (event: any) => {
@@ -129,10 +81,56 @@ export default function AmbiencePlayer({ youtubeId, mood, videoTitle, explanatio
       });
       previousVideoId.current = youtubeId;
     } catch (error) {
-      console.error('Error initializing YouTube player:', error);
+      console.error('Error creating player:', error);
       setIsLoading(false);
     }
-  };
+  }, [youtubeId, volume, isMuted, player]);
+
+  // Load YouTube API
+  useEffect(() => {
+    let mounted = true;
+
+    const setupPlayer = async () => {
+      try {
+        await loadYouTubeAPI();
+        if (mounted) {
+          initializePlayer();
+        }
+      } catch (error) {
+        console.error('Failed to load YouTube API:', error);
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    setupPlayer();
+
+    return () => {
+      mounted = false;
+      if (player) {
+        try {
+          player.destroy();
+        } catch (e) {
+          console.warn('Error destroying player on unmount:', e);
+        }
+      }
+    };
+  }, [initializePlayer]);
+
+  // Handle video changes
+  useEffect(() => {
+    if (player && previousVideoId.current !== youtubeId) {
+      setIsLoading(true);
+      try {
+        player.loadVideoById(youtubeId);
+        previousVideoId.current = youtubeId;
+      } catch (error) {
+        console.warn('Error loading new video:', error);
+        setIsLoading(false);
+      }
+    }
+  }, [youtubeId, player]);
 
   const handleVolumeChange = (newVolume: number) => {
     setVolume(newVolume);
