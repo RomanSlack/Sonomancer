@@ -31,8 +31,8 @@ export default function AmbiencePlayer({ youtubeId, mood, videoTitle, explanatio
     return null;
   }
 
-  // Simple YouTube embed URL with autoplay and volume control
-  const embedUrl = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&controls=1&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&volume=${volume}&mute=${isMuted ? 1 : 0}`;
+  // Simple YouTube embed URL - volume control via UI only to prevent resets
+  const embedUrl = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&controls=1&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3`;
 
   return (
     <div className={`fixed bottom-24 right-4 bg-gray-800 rounded-lg shadow-2xl border border-gray-700 overflow-hidden z-50 transition-all duration-300 ${

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import ChapterReader from "../../components/ChapterReader";
 import ReaderNavigation from "../../components/ReaderNavigation";
 import AmbiencePlayer from "../../components/AmbiencePlayer";
@@ -27,10 +27,12 @@ interface AmbienceData {
 
 export default function ReaderPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const bookId = params.bookId as string;
+  const initialChapter = searchParams.get('chapter') ? parseInt(searchParams.get('chapter')!) : 0;
   
   const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
+  const [currentChapterIndex, setCurrentChapterIndex] = useState(initialChapter);
   const [chapterContent, setChapterContent] = useState<ChapterContent | null>(null);
   const [ambienceData, setAmbienceData] = useState<AmbienceData | null>(null);
   const [ambienceEnabled, setAmbienceEnabled] = useState(true);
@@ -82,7 +84,10 @@ export default function ReaderPage() {
     }
   }, [bookId, currentChapterIndex]);
 
-  // Load ambience when chapter changes ONLY
+  // Track if this is the initial load vs user navigation
+  const [hasUserNavigated, setHasUserNavigated] = useState(false);
+
+  // Load ambience when user navigates to a chapter (not on initial load)
   useEffect(() => {
     let isCancelled = false;
     
@@ -107,7 +112,8 @@ export default function ReaderPage() {
       }
     };
 
-    if (bookId && currentChapterIndex >= 0) {
+    // Only fetch ambience if user has navigated (not initial page load from chapter selection)
+    if (bookId && currentChapterIndex >= 0 && hasUserNavigated && ambienceEnabled) {
       fetchAmbience();
     }
 
@@ -115,7 +121,7 @@ export default function ReaderPage() {
     return () => {
       isCancelled = true;
     };
-  }, [bookId, currentChapterIndex]);
+  }, [bookId, currentChapterIndex, hasUserNavigated, ambienceEnabled]);
 
   // Handle ambience toggle separately
   useEffect(() => {
@@ -127,6 +133,7 @@ export default function ReaderPage() {
   const handleChapterChange = (newIndex: number) => {
     if (newIndex >= 0 && newIndex < chapters.length) {
       setCurrentChapterIndex(newIndex);
+      setHasUserNavigated(true); // Mark that user has navigated
     }
   };
 
@@ -136,6 +143,23 @@ export default function ReaderPage() {
 
   const handleNextChapter = () => {
     handleChapterChange(currentChapterIndex + 1);
+  };
+
+  const handleLoadAmbience = async () => {
+    if (!ambienceEnabled) return;
+    
+    try {
+      console.log(`🔄 Loading ambience for current chapter ${currentChapterIndex}...`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/ambience/${bookId}/${currentChapterIndex}`);
+      if (!response.ok) throw new Error("Failed to fetch ambience");
+      
+      const data = await response.json();
+      setAmbienceData(data);
+      console.log(`✅ Ambience loaded for chapter ${currentChapterIndex}:`, data);
+    } catch (err) {
+      console.error('Ambience fetch error:', err);
+      setAmbienceData(null);
+    }
   };
 
   if (chapters.length === 0) {
@@ -171,6 +195,18 @@ export default function ReaderPage() {
           content={chapterContent}
           loading={loading}
         />
+        
+        {/* Load Ambience Button - only show if no ambience data and ambience is enabled */}
+        {ambienceEnabled && !ambienceData && !loading && (
+          <div className="fixed bottom-32 right-4 z-40">
+            <button
+              onClick={handleLoadAmbience}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg shadow-lg transition-colors text-sm font-medium"
+            >
+              🎵 Load AI Ambience
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Ambience Player */}

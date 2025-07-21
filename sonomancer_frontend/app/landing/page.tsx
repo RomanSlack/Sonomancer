@@ -29,7 +29,7 @@ export default function LandingPage() {
       }
 
       const result = await response.json();
-      router.push(`/reader/${result.book_id}`);
+      router.push(`/chapters/${result.book_id}`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Upload failed. Please try again.";
       setError(errorMessage);

@@ -17,7 +17,7 @@ An immersive e-reading experience that uses AI to generate ambient soundscapes m
 ## Screenshot
 
 <div align="center">
-  <img src="images/sonomancer_1.png" alt="Screenshot of Sonomancer App" width="800">
+  <img src="images/sonomancer_2.png" alt="Screenshot of Sonomancer App" width="800">
   <p><em>Screenshot of the Sonomancer ambient e-reader in action</em></p>
 </div>
 
